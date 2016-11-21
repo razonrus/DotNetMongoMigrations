@@ -13,11 +13,6 @@ namespace MongoMigrations
 			Init();
 		}
 
-		public static void Init()
-		{
-			BsonSerializer.RegisterSerializer(typeof (MigrationVersion), new MigrationVersionSerializer());
-		}
-
 		public MigrationRunner(string mongoServerLocation, string databaseName)
             : this(new MongoClient(mongoServerLocation).GetDatabase(databaseName))
 		{
@@ -29,6 +24,13 @@ namespace MongoMigrations
 			DatabaseStatus = new DatabaseMigrationStatus(this);
 			MigrationLocator = new MigrationLocator();
 		}
+
+        public static void Init()
+        {
+            MongoDefaults.GuidRepresentation = MongoDB.Bson.GuidRepresentation.Standard;
+
+            BsonSerializer.RegisterSerializer(typeof(MigrationVersion), new MigrationVersionSerializer());
+        }
 
         public IMongoDatabase Database { get; set; }
 		public MigrationLocator MigrationLocator { get; set; }
