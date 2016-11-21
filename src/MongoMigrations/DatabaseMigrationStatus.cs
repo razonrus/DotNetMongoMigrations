@@ -2,6 +2,8 @@
 {
 	using System;
 	using System.Linq;
+
+	using MongoDB.Bson;
 	using MongoDB.Driver;
 
 	public class DatabaseMigrationStatus
@@ -15,7 +17,7 @@
 			_Runner = runner;
 		}
 
-		public virtual MongoCollection<AppliedMigration> GetMigrationsApplied()
+		public virtual IMongoCollection<AppliedMigration> GetMigrationsApplied()
 		{
 			return _Runner.Database.GetCollection<AppliedMigration>(VersionCollectionName);
 		}
@@ -48,7 +50,7 @@
 		public virtual AppliedMigration GetLastAppliedMigration()
 		{
 			return GetMigrationsApplied()
-				.FindAll()
+				.Find(FilterDefinition<AppliedMigration>.Empty)
 				.ToList() // in memory but this will never get big enough to matter
 				.OrderByDescending(v => v.Version)
 				.FirstOrDefault();
@@ -57,14 +59,14 @@
 		public virtual AppliedMigration StartMigration(Migration migration)
 		{
 			var appliedMigration = new AppliedMigration(migration);
-			GetMigrationsApplied().Insert(appliedMigration);
+			////GetMigrationsApplied().InsertOne(appliedMigration);
 			return appliedMigration;
 		}
 
 		public virtual void CompleteMigration(AppliedMigration appliedMigration)
 		{
 			appliedMigration.CompletedOn = DateTime.Now;
-			GetMigrationsApplied().Save(appliedMigration);
+            GetMigrationsApplied().InsertOne(appliedMigration);
 		}
 
 		public virtual void MarkUpToVersion(MigrationVersion version)
@@ -78,7 +80,7 @@
 		public virtual void MarkVersion(MigrationVersion version)
 		{
 			var appliedMigration = AppliedMigration.MarkerOnly(version);
-			GetMigrationsApplied().Insert(appliedMigration);
+			GetMigrationsApplied().InsertOne(appliedMigration);
 		}
 	}
 }
