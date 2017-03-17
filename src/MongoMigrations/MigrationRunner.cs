@@ -49,7 +49,7 @@ namespace MongoMigrations
 
 	    private string ServerAddresses()
 	    {
-            return String.Join(",", Database.Client.Settings.Server.ToString());
+            return String.Join(",", Database.Client.Settings.Servers.Select(s => s.ToString()));
 	    }
 
 	    protected virtual void ApplyMigrations(IEnumerable<Migration> migrations)
