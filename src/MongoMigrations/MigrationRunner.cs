@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Configuration;
+
 namespace MongoMigrations
 {
 	using System;
@@ -8,21 +10,24 @@ namespace MongoMigrations
 
 	public class MigrationRunner
 	{
+		private readonly IConfigurationRoot _configuration;
+
 		static MigrationRunner()
 		{
 			Init();
 		}
 
-		public MigrationRunner(string mongoServerLocation, string databaseName)
+		public MigrationRunner(string mongoServerLocation, string databaseName, IConfigurationRoot configuration = null)
             : this(new MongoClient(mongoServerLocation).GetDatabase(databaseName))
 		{
 		}
 
-        public MigrationRunner(IMongoDatabase database)
+        public MigrationRunner(IMongoDatabase database, IConfigurationRoot configuration = null)
 		{
 			Database = database;
 			DatabaseStatus = new DatabaseMigrationStatus(this);
 			MigrationLocator = new MigrationLocator();
+			_configuration = configuration;
 		}
 
         public static void Init()
@@ -64,6 +69,9 @@ namespace MongoMigrations
 
 			var appliedMigration = DatabaseStatus.StartMigration(migration);
 			migration.Database = Database;
+
+			if (_configuration != null) migration.ApplyConfig(_configuration);
+
 			try
 			{
 				migration.Update();

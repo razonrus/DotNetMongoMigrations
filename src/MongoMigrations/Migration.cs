@@ -1,3 +1,6 @@
+using System;
+using Microsoft.Extensions.Configuration;
+
 namespace MongoMigrations
 {
 	using MongoDB.Driver;
@@ -15,6 +18,15 @@ namespace MongoMigrations
 
 		public IMongoDatabase Database { get; set; }
 
+		protected IConfigurationRoot Configuration { get; private set; }
+
 		public abstract void Update();
+
+		internal void ApplyConfig(IConfigurationRoot configuration)
+		{
+			if(configuration == null) throw new ArgumentException("Can't apply a null configuration");
+
+			Configuration = configuration;
+		}
 	}
 }
