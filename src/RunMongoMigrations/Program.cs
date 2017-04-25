@@ -1,48 +1,38 @@
 ﻿using System;
 using System.Reflection;
-
 using MongoMigrations;
 
 namespace RunMongoMigrations
 {
-    using CommandLine;
+	public class Program
+	{
+		public static int Main(string[] args)
+		{
+			if (args.Length < 3)
+			{
+				Console.WriteLine("Usage: RunMongoMigrations server[:port] databaseName migrationAssembly");
+				return 1;
+			}
 
-    public class Program
-    {
-        public static void Main(string[] args)
-        {
-////#if DEBUG
-////            args = new[]
-////               {
-////                    "--database",
-////                    "test1",
-////                    "--migrations",
-////                    @"..\..\..\MongoMigrations.Stubs\bin\Debug\MongoMigrations.Stubs.dll"
-////                };
-////#endif
+			var server = args[0];
+			var database = args[1];
+			var migrationsAssembly = args[2];
+			
+			var runner = new MigrationRunner(("mongodb://" + server), database);
 
-            Parser.Default.ParseArguments<Options>(args)
-                .WithParsed(Run)
-                .WithNotParsed(errors => { Environment.Exit(1); });
-        }
+			runner.MigrationLocator.LookForMigrationsInAssembly(Assembly.LoadFrom(migrationsAssembly));
 
-        private static void Run(Options options)
-        {
-            var runner = new MigrationRunner($"mongodb://{options.Host}:{options.Port}", options.Database);
-
-            runner.MigrationLocator.LookForMigrationsInAssembly(Assembly.LoadFrom(options.Migrations));
-
-            try
-            {
-                runner.UpdateToLatest();
-                Environment.Exit(0);
-            }
-            catch (MigrationException e)
-            {
-                Console.WriteLine("Migrations Failed: " + e);
-                ////Console.WriteLine(server, database, migrationsAssembly);
-                Environment.Exit(1);
-            }
-        }
-    }
+			try
+			{
+				runner.UpdateToLatest();
+				return 0;
+			}
+			catch (MigrationException e)
+			{
+				Console.WriteLine("Migrations Failed: " + e);
+				Console.WriteLine(args[0], args[1], args[2]);
+				return 1;
+			}
+		}
+	}
 }

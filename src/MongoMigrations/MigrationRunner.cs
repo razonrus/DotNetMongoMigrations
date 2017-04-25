@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Configuration;
-
 namespace MongoMigrations
 {
 	using System;
@@ -10,43 +8,29 @@ namespace MongoMigrations
 
 	public class MigrationRunner
 	{
-		private readonly IConfigurationRoot _configuration;
-
 		static MigrationRunner()
 		{
 			Init();
 		}
-        
+
+		public static void Init()
+		{
+			BsonSerializer.RegisterSerializer(typeof (MigrationVersion), new MigrationVersionSerializer());
+		}
+
 		public MigrationRunner(string mongoServerLocation, string databaseName)
 			: this(new MongoClient(mongoServerLocation).GetDatabase(databaseName))
 		{
 		}
 
-		//public MigrationRunner(IMongoDatabase database)
-
-		public MigrationRunner(string mongoServerLocation, string databaseName, IConfigurationRoot configuration = null)
-            : this(new MongoClient(mongoServerLocation).GetDatabase(databaseName))
-		{
-		}
-
-        public MigrationRunner(IMongoDatabase database, IConfigurationRoot configuration = null)
+		public MigrationRunner(IMongoDatabase database)
 		{
 			Database = database;
 			DatabaseStatus = new DatabaseMigrationStatus(this);
 			MigrationLocator = new MigrationLocator();
-			_configuration = configuration;
 		}
 
-
 		public IMongoDatabase Database { get; set; }
-
-        public static void Init()
-        {
-            MongoDefaults.GuidRepresentation = MongoDB.Bson.GuidRepresentation.Standard;
-
-            BsonSerializer.RegisterSerializer(typeof(MigrationVersion), new MigrationVersionSerializer());
-        }
-        
 		public MigrationLocator MigrationLocator { get; set; }
 		public DatabaseMigrationStatus DatabaseStatus { get; set; }
 
@@ -58,14 +42,12 @@ namespace MongoMigrations
 
 		private string WhatWeAreUpdating()
 		{
-			//return string.Format("Updating server(s) \"{0}\" for database \"{1}\"", ServerAddresses(), Database.DatabaseNamespace.DatabaseName);
-            return $"Updating server(s) \"{this.ServerAddresses()}\" for database \"{this.Database.DatabaseNamespace.DatabaseName}\"";
+			return string.Format("Updating server(s) \"{0}\" for database \"{1}\"", ServerAddresses(), Database.DatabaseNamespace.DatabaseName);
 		}
 
 	    private string ServerAddresses()
 	    {
             return String.Join(",", Database.Client.Settings.Servers.Select(server => $"{server.Host}:{server.Port}"));
-            //return String.Join(",", Database.Client.Settings.Servers.Select(s => s.ToString()));
 	    }
 
 	    protected virtual void ApplyMigrations(IEnumerable<Migration> migrations)
@@ -76,22 +58,19 @@ namespace MongoMigrations
 
 		protected virtual void ApplyMigration(Migration migration)
 		{
-		    Console.WriteLine(new {Message = "Applying migration", migration.Version, migration.Description, DatabaseName = Database.DatabaseNamespace.DatabaseName});
+			Console.WriteLine(new {Message = "Applying migration", migration.Version, migration.Description, DatabaseName = Database.DatabaseNamespace.DatabaseName});
 
 			var appliedMigration = DatabaseStatus.StartMigration(migration);
 			migration.Database = Database;
-
-			if (_configuration != null) migration.ApplyConfig(_configuration);
-
 			try
 			{
 				migration.Update();
-                DatabaseStatus.CompleteMigration(appliedMigration);
 			}
 			catch (Exception exception)
 			{
 				OnMigrationException(migration, exception);
 			}
+			DatabaseStatus.CompleteMigration(appliedMigration);
 		}
 
 		protected virtual void OnMigrationException(Migration migration, Exception exception)
@@ -111,7 +90,6 @@ namespace MongoMigrations
 		public virtual void UpdateTo(MigrationVersion updateToVersion)
 		{
 			var currentVersion = DatabaseStatus.GetLastAppliedMigration();
-
 			Console.WriteLine(new {Message = WhatWeAreUpdating(), currentVersion, updateToVersion, DatabaseName = Database.DatabaseNamespace.DatabaseName});
 
 			var migrations = MigrationLocator.GetMigrationsAfter(currentVersion)
