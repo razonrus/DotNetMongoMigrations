@@ -1,58 +1,71 @@
 namespace MongoMigrations
 {
-    using System;
-    using MongoDB.Bson;
-    using MongoDB.Driver;
+	using System;
+	using System.Collections.Generic;
+	using MongoDB.Bson;
+	using MongoDB.Driver;
 
-    public abstract class CollectionMigration : Migration
-    {
-        protected string CollectionName;
-        protected FilterDefinition<BsonDocument> Filter;
+	public abstract class CollectionMigration : Migration
+	{
+		protected string CollectionName;
 
-        public IMongoCollection<BsonDocument> Collection { get; protected set; }
+		public CollectionMigration(MigrationVersion version, string collectionName) : base(version)
+		{
+			CollectionName = collectionName;
+		}
 
-        public CollectionMigration(MigrationVersion version, string collectionName, FilterDefinition<BsonDocument> filter = null) : base(version)
-        {
-            CollectionName = collectionName;          
-            this.Filter = filter ?? Builders<BsonDocument>.Filter.Empty;
-        }
+		public virtual FilterDefinition<BsonDocument> Filter()
+		{
+			return FilterDefinition<BsonDocument>.Empty;
+		}
 
-        public override void Update()
-        {
-            this.Collection = Database.GetCollection<BsonDocument>(CollectionName);
-            using (var cursor = this.Collection.Find(this.Filter).ToCursor())
-            {
-                while(cursor.MoveNext())
-                {
-                    foreach (var currentDocument in cursor.Current)
-                    {
-                        try
-                        {
-                            UpdateDocument(currentDocument);                          
-                        }
-                        catch (Exception exception)
-                        {
-                            OnErrorUpdatingDocument(currentDocument, exception);
-                        }
-                    }
-                }
-            }
-        }
+		public override void Update()
+		{
+			var collection = GetCollection();
+			var documents = GetDocuments(collection);
+			UpdateDocuments(collection, documents);
+		}
 
-        protected virtual void OnErrorUpdatingDocument(BsonDocument document, Exception exception)
-        {
-            var message =
-                new
-                {
-                    Message = "Failed to update document",
-                    CollectionName,
-                    Id = document.TryGetDocumentId(),
-                    MigrationVersion = Version,
-                    MigrationDescription = Description
-                };
-            throw new MigrationException(message.ToString(), exception);
-        }
+		public virtual void UpdateDocuments(IMongoCollection<BsonDocument> collection, IEnumerable<BsonDocument> documents)
+		{
+			foreach (var document in documents)
+			{
+				try
+				{
+					UpdateDocument(collection, document);
+				}
+				catch (Exception exception)
+				{
+					OnErrorUpdatingDocument(document, exception);
+				}
+			}
+		}
 
-        public abstract void UpdateDocument(BsonDocument document);
-    }
+		protected virtual void OnErrorUpdatingDocument(BsonDocument document, Exception exception)
+		{
+			var message =
+				new
+					{
+						Message = "Failed to update document",
+						CollectionName,
+						Id = document.TryGetDocumentId(),
+						MigrationVersion = Version,
+						MigrationDescription = Description
+					};
+			throw new MigrationException(message.ToString(), exception);
+		}
+
+		public abstract void UpdateDocument(IMongoCollection<BsonDocument> collection, BsonDocument document);
+
+		protected virtual IMongoCollection<BsonDocument> GetCollection()
+		{
+			return Database.GetCollection<BsonDocument>(CollectionName);
+		}
+
+		protected virtual IEnumerable<BsonDocument> GetDocuments(IMongoCollection<BsonDocument> collection)
+		{
+			var query = Filter();
+			return  collection.Find(query).ToList();
+		}
+	}
 }

@@ -2,6 +2,8 @@
 {
 	using System;
 	using System.Linq;
+
+	using MongoDB.Bson;
 	using MongoDB.Driver;
 
 	public class DatabaseMigrationStatus
@@ -49,6 +51,7 @@
 		{
 			return GetMigrationsApplied()
                 .Find(Builders<AppliedMigration>.Filter.Empty)
+				//.Find(FilterDefinition<AppliedMigration>.Empty)
 				.ToList() // in memory but this will never get big enough to matter
 				.OrderByDescending(v => v.Version)
 				.FirstOrDefault();
@@ -57,15 +60,16 @@
 		public virtual AppliedMigration StartMigration(Migration migration)
 		{
 			var appliedMigration = new AppliedMigration(migration);
-			GetMigrationsApplied().InsertOne(appliedMigration);
+			//GetMigrationsApplied().InsertOne(appliedMigration);
 			return appliedMigration;
 		}
 
 		public virtual void CompleteMigration(AppliedMigration appliedMigration)
 		{
 			appliedMigration.CompletedOn = DateTime.Now;
-			GetMigrationsApplied().ReplaceOne(x => x.Version == appliedMigration.Version, appliedMigration);
-		}
+			//GetMigrationsApplied().ReplaceOne(x => x.Version == appliedMigration.Version, appliedMigration);
+            GetMigrationsApplied().InsertOne(appliedMigration);
+        }
 
 		public virtual void MarkUpToVersion(MigrationVersion version)
 		{
